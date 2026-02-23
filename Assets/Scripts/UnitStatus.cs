@@ -9,5 +9,5 @@ public class UnitStatus : MonoBehaviour
     public float moveSpeed = 2.0f;
 
     [Header("コスト設定")]
-    public int cost = 100; // 生産にかかるお金
+    public int cost = 100; 
 }

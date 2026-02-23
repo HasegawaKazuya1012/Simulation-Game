@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement; // ★重要：シーン切り替えに必要！
+using UnityEngine.SceneManagement; 
 
 public class TowerHealth : MonoBehaviour
 {
@@ -31,19 +31,15 @@ public class TowerHealth : MonoBehaviour
 
         if (currentHp <= 0)
         {
-            // HPが0になったら、タグを見てどっちの城か判断する
             if (gameObject.CompareTag("PlayerBase"))
             {
-                // 自分の城（PlayerBase）が壊れた → 負け
                 SceneManager.LoadScene("GameOver");
             }
             else if (gameObject.CompareTag("EnemyBase"))
             {
-                // 敵の城（EnemyBase）が壊れた → 勝ち
                 SceneManager.LoadScene("GameClear");
             }
             
-            // 城を消す
             Destroy(gameObject);
         }
     }

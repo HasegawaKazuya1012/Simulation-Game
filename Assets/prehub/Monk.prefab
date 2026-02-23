@@ -123,7 +123,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 100
   attackPower: 20
-  attackRange: 1.5
+  attackRange: 3
   moveSpeed: 2
   cost: 300
 --- !u!114 &-3579818218089068107

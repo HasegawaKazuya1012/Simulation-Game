@@ -25,7 +25,6 @@ public class UnitController : MonoBehaviour
 
         if (!isPlayerTeam)
         {
-            // Scale（大きさ）のXを -1 にすると反転する
             Vector3 newScale = transform.localScale;
             newScale.x = -1;
             transform.localScale = newScale;
@@ -38,26 +37,24 @@ public class UnitController : MonoBehaviour
 
         if (attackCooldown > 0) attackCooldown -= Time.deltaTime;
 
+        
+        if (name.Contains("Monk"))
+        {
+            UpdateMonkAI(); 
+        }
+        else
+        {
+            UpdateNormalAI(); 
+        }
+    }
+
+    void UpdateMonkAI()
+    {
         GameObject target = DetectTarget();
 
         if (target != null)
         {
-            // ターゲットがいる場合
             
-            // 【Monkの特別処理】もし相手が味方で、HPが満タンなら無視して進む
-            if (name.Contains("Monk"))
-            {
-                 UnitController friend = target.GetComponent<UnitController>();
-                 if (friend != null && friend.IsFullHealth()) 
-                 {
-                     // 回復不要なので移動を続ける
-                     Move();
-                     SetMoveAnimation(true);
-                     return; 
-                 }
-            }
-
-            // 攻撃/回復のために止まる
             isStopped = true;
             SetMoveAnimation(false);
             
@@ -69,7 +66,40 @@ public class UnitController : MonoBehaviour
         }
         else
         {
-            // ターゲットがいない場合：移動
+            
+            if (HasAllyAhead())
+            {
+                
+                isStopped = false;
+                SetMoveAnimation(true);
+                Move();
+            }
+            else
+            {
+                
+                isStopped = true;
+                SetMoveAnimation(false);
+            }
+        }
+    }
+
+    void UpdateNormalAI()
+    {
+        GameObject target = DetectTarget();
+
+        if (target != null)
+        {
+            isStopped = true;
+            SetMoveAnimation(false);
+            
+            if (attackCooldown <= 0)
+            {
+                PerformAction(target);
+                attackCooldown = 2.0f; 
+            }
+        }
+        else
+        {
             isStopped = false;
             SetMoveAnimation(true);
             Move();
@@ -78,11 +108,11 @@ public class UnitController : MonoBehaviour
 
     void Move()
     {
+        if (isStopped) return;
         float direction = isPlayerTeam ? 1.0f : -1.0f;
         transform.Translate(Vector2.right * direction * status.moveSpeed * Time.deltaTime);
     }
 
-    // 【重要修正】自分自身を検知しないように改良した索敵機能
     GameObject DetectTarget()
     {
         Vector2 direction = isPlayerTeam ? Vector2.right : Vector2.left;
@@ -97,17 +127,52 @@ public class UnitController : MonoBehaviour
              targetLayerMask = 1 << LayerMask.NameToLayer(isPlayerTeam ? "EnemyTeam" : "PlayerTeam");
         }
 
-        // ★修正点：ビームの発射位置を、自分の中心から少し（0.5）ずらす
-        // これにより「自分自身のコライダー」に当たるのを防ぎます
-        Vector2 startPos = (Vector2)transform.position + (direction * 0.5f);
+        RaycastHit2D[] hits = Physics2D.RaycastAll(transform.position, direction, status.attackRange, targetLayerMask);
 
-        RaycastHit2D hit = Physics2D.Raycast(startPos, direction, status.attackRange, targetLayerMask);
-
-        if (hit.collider != null)
+        foreach (RaycastHit2D hit in hits)
         {
-            return hit.collider.gameObject;
+            if (hit.collider.gameObject != this.gameObject)
+            {
+                
+                UnitController unit = hit.collider.GetComponent<UnitController>();
+                if (unit != null)
+                {
+                    return hit.collider.gameObject; 
+                }
+
+                
+                if (!name.Contains("Monk"))
+                {
+                    TowerHealth tower = hit.collider.GetComponent<TowerHealth>();
+                    if (tower != null)
+                    {
+                        return hit.collider.gameObject; 
+                    }
+                }
+            }
         }
         return null;
+    }
+
+    bool HasAllyAhead()
+    {
+        Vector2 direction = isPlayerTeam ? Vector2.right : Vector2.left;
+        int targetLayerMask = 1 << LayerMask.NameToLayer(isPlayerTeam ? "PlayerTeam" : "EnemyTeam");
+
+        RaycastHit2D[] hits = Physics2D.RaycastAll(transform.position, direction, 100f, targetLayerMask);
+
+        foreach (RaycastHit2D hit in hits)
+        {
+            if (hit.collider.gameObject != this.gameObject)
+            {
+                UnitController ally = hit.collider.GetComponent<UnitController>();
+                if (ally != null)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     void PerformAction(GameObject target)
@@ -151,7 +216,6 @@ public class UnitController : MonoBehaviour
         if (currentHealth > status.maxHealth) currentHealth = status.maxHealth;
     }
 
-    // 【追加】HPが満タンか確認する機能
     public bool IsFullHealth()
     {
         return currentHealth >= status.maxHealth;
@@ -160,5 +224,15 @@ public class UnitController : MonoBehaviour
     void Die()
     {
         Destroy(gameObject);
+    }
+
+    void OnDrawGizmos()
+    {
+        if (status != null)
+        {
+            Gizmos.color = Color.red;
+            Vector2 direction = isPlayerTeam ? Vector2.right : Vector2.left;
+            Gizmos.DrawRay(transform.position, direction * status.attackRange);
+        }
     }
 }
