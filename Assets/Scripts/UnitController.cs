@@ -8,7 +8,7 @@ public class UnitController : MonoBehaviour
 
     private Animator anim;
     private Rigidbody2D rb;
-    private float currentHealth;
+    public float currentHealth;
     private float attackCooldown = 0f;
     private bool isStopped = false; 
 
@@ -36,7 +36,6 @@ public class UnitController : MonoBehaviour
         if (status == null) return;
 
         if (attackCooldown > 0) attackCooldown -= Time.deltaTime;
-
         
         if (name.Contains("Monk"))
         {
@@ -48,39 +47,79 @@ public class UnitController : MonoBehaviour
         }
     }
 
+    // ==============================================
+    // Monk（僧侶）専用のAI
+    // ==============================================
     void UpdateMonkAI()
     {
-        GameObject target = DetectTarget();
+        GameObject frontAlly = GetFrontAlly();
 
-        if (target != null)
+        // 1. Monk以外の味方がいないなら待機
+        if (frontAlly == null)
         {
-            
             isStopped = true;
             SetMoveAnimation(false);
-            
+            return;
+        }
+
+        float myForwardPos = isPlayerTeam ? transform.position.x : -transform.position.x;
+        float targetForwardPos = isPlayerTeam ? frontAlly.transform.position.x : -frontAlly.transform.position.x;
+        float distance = Mathf.Abs(transform.position.x - frontAlly.transform.position.x);
+
+        // 4. 最も前にいる味方がMonkより後方にいるなら待機する
+        if (targetForwardPos <= myForwardPos)
+        {
+            isStopped = true;
+            SetMoveAnimation(false);
+            return;
+        }
+
+        // --- ここから下は「最前線の味方が自分より前方にいる」ことが確定 ---
+
+        if (distance <= status.attackRange)
+        {
+            // 2. Monkより前方にいて、射程距離より近くにいるなら止まって回復させる
+            isStopped = true;
+            SetMoveAnimation(false);
+
             if (attackCooldown <= 0)
             {
-                PerformAction(target);
-                attackCooldown = 2.0f; 
+                PerformAction(frontAlly); // 必ず最前線のキャラを回復する
+                attackCooldown = 2.0f;
             }
         }
         else
         {
-            
-            if (HasAllyAhead())
+            // 3. 射程距離より遠くにいるなら射程距離まで移動する
+            // 【重要】Archerなどで立ち往生しないよう、味方との重なり判定を無くし、すり抜けて前進させます
+            isStopped = false;
+            SetMoveAnimation(true);
+            Move();
+        }
+    }
+
+    // Monk自身と他のMonkを除く、最も前にいる味方を取得する
+    GameObject GetFrontAlly()
+    {
+        UnitController[] allUnits = FindObjectsOfType<UnitController>();
+        GameObject frontUnit = null;
+        float maxForwardPos = -9999f;
+
+        foreach (UnitController unit in allUnits)
+        {
+            // 同じチーム、自分ではない、そして「Monkではない」味方だけを探す
+            if (unit.isPlayerTeam == this.isPlayerTeam && unit.gameObject != this.gameObject && !unit.name.Contains("Monk"))
             {
-                
-                isStopped = false;
-                SetMoveAnimation(true);
-                Move();
-            }
-            else
-            {
-                
-                isStopped = true;
-                SetMoveAnimation(false);
+                float forwardPos = isPlayerTeam ? unit.transform.position.x : -unit.transform.position.x;
+
+                if (forwardPos > maxForwardPos)
+                {
+                    maxForwardPos = forwardPos;
+                    frontUnit = unit.gameObject;
+                }
             }
         }
+        return frontUnit;
     }
 
     void UpdateNormalAI()
@@ -133,13 +172,11 @@ public class UnitController : MonoBehaviour
         {
             if (hit.collider.gameObject != this.gameObject)
             {
-                
                 UnitController unit = hit.collider.GetComponent<UnitController>();
                 if (unit != null)
                 {
                     return hit.collider.gameObject; 
                 }
-
                 
                 if (!name.Contains("Monk"))
                 {
@@ -152,27 +189,6 @@ public class UnitController : MonoBehaviour
             }
         }
         return null;
-    }
-
-    bool HasAllyAhead()
-    {
-        Vector2 direction = isPlayerTeam ? Vector2.right : Vector2.left;
-        int targetLayerMask = 1 << LayerMask.NameToLayer(isPlayerTeam ? "PlayerTeam" : "EnemyTeam");
-
-        RaycastHit2D[] hits = Physics2D.RaycastAll(transform.position, direction, 100f, targetLayerMask);
-
-        foreach (RaycastHit2D hit in hits)
-        {
-            if (hit.collider.gameObject != this.gameObject)
-            {
-                UnitController ally = hit.collider.GetComponent<UnitController>();
-                if (ally != null)
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     void PerformAction(GameObject target)

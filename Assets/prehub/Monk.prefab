@@ -123,7 +123,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 100
   attackPower: 20
-  attackRange: 3
+  attackRange: 1
   moveSpeed: 2
   cost: 300
 --- !u!114 &-3579818218089068107
@@ -140,6 +140,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   status: {fileID: 2154700727898315717}
   isPlayerTeam: 1
+  currentHealth: 0
 --- !u!61 &478761784064744934
 BoxCollider2D:
   m_ObjectHideFlags: 0
